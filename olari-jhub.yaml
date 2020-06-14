@@ -1,0 +1,76 @@
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: jhub
+  region: us-west-2
+  version: "1.16"
+
+managedNodeGroups:
+  - name: jupyter-cpu
+    minSize: 2
+    maxSize: 4
+    desiredCapacity: 3
+    volumeSize: 20
+    # ssh:
+      # allow: true
+      # publicKeyPath: ~/.ssh/ec2_id_rsa.pub
+      # new feature for restricting SSH access to certain AWS security group IDs
+      # sourceSecurityGroupIds: ["sg-00241fbb12c607007"]
+    labels: {role: worker}
+    tags:
+      nodegroup-role: worker
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        certManager: true
+        appMesh: true
+        ebs: true
+        fsx: true
+        efs: true
+        albIngress: true
+        xRay: true
+        cloudWatch: true
+
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["*"]
+
+fargateProfiles:
+  - name: olari-fargate
+    # this is to deploy jupyter notebooks into Fargate!!!
+    selectors:
+      - namespace: olari-fargate
+  - name: fp-default
+    selectors:
+      # All workloads in the "default" Kubernetes namespace will be
+      # scheduled onto Fargate:
+      - namespace: default
+      # All workloads in the "kube-system" Kubernetes namespace will be
+      # scheduled onto Fargate:
+      - namespace: kube-system
+  - name: fp-dev
+    selectors:
+      # All workloads in the "dev" Kubernetes namespace matching the following
+      # label selectors will be scheduled onto Fargate:
+      - namespace: dev
+        labels:
+          env: dev
+          checks: passed
+
+git:
+  repo:
+    url: "git@github.com:omarlari/jhub-cluster.git"
+    branch: master
+    fluxPath: "flux/"
+    user: "omarlari"
+    email: "omarlari@gmail.com"
+  operator:
+    namespace: "flux"
+    withHelm: true
+  bootstrapProfile:
+    source: app-dev
+    revision: master
